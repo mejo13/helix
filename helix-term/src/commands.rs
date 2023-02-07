@@ -302,6 +302,7 @@ impl MappableCommand {
         symbol_picker_filtered, "Choose from available SymbolKinds",
         select_references_to_symbol_under_cursor, "Select symbol references",
         workspace_symbol_picker, "Open workspace symbol picker",
+        workspace_symbol_picker_filtered, "Choose from workspace wide available SymbolKinds",
         diagnostics_picker, "Open diagnostic picker",
         workspace_diagnostics_picker, "Open workspace diagnostic picker",
         last_picker, "Open last picker",
