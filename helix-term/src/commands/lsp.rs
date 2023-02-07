@@ -614,6 +614,150 @@ pub fn workspace_symbol_picker(cx: &mut Context) {
     )
 }
 
+pub fn workspace_symbol_picker_filtered(cx: &mut Context) {
+    let doc = doc!(cx.editor);
+    let language_server = language_server!(cx.editor, doc);
+    let current_url = doc.url();
+    let offset_encoding = language_server.offset_encoding();
+
+    let future = match language_server.workspace_symbols("".to_string()) {
+        Some(future) => future,
+        None => {
+            cx.editor
+                .set_error("Language server does not support document symbols");
+            return;
+        }
+    };
+
+    let json = block_on(future);
+    let symbols: Vec<lsp::SymbolInformation> = serde_json::from_value(json.unwrap()).unwrap();
+
+    let mut kinds: BTreeMap<char, (lsp::SymbolKind, u16)> = BTreeMap::new();                        
+    symbols.iter().for_each(|symbol| {
+        match symbol.kind {
+            lsp::SymbolKind::FUNCTION => {
+                kinds.entry('f').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::STRUCT => {
+                kinds.entry('s').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::FIELD => {
+                kinds.entry('F').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::OBJECT => {
+                kinds.entry('O').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::METHOD => {
+                kinds.entry('m').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::ENUM => {
+                kinds.entry('e').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::ENUM_MEMBER => {
+                kinds.entry('E').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::CONSTANT => {
+                kinds.entry('c').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::TYPE_PARAMETER => {
+                kinds.entry('t').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::MODULE => {
+                kinds.entry('M').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::FILE => {
+                kinds.entry('I').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::NAMESPACE => {
+                kinds.entry('N').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::PACKAGE => {
+                kinds.entry('P').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::CLASS => {
+                kinds.entry('l').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::PROPERTY => {
+                kinds.entry('p').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::CONSTRUCTOR => {
+                kinds.entry('C').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::INTERFACE => {
+                kinds.entry('i').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::VARIABLE => {
+                kinds.entry('v').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::STRING => {
+                kinds.entry('S').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::NUMBER => {
+                kinds.entry('n').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::BOOLEAN => {
+                kinds.entry('b').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::ARRAY => {
+                kinds.entry('a').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::KEY => {
+                kinds.entry('k').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::NULL => {
+                kinds.entry('u').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::EVENT => {
+                kinds.entry('V').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            lsp::SymbolKind::OPERATOR => {
+                kinds.entry('o').and_modify(|(_, cnt)| *cnt += 1).or_insert((symbol.kind, 1));
+            }
+            _ => (),
+        }
+    });
+
+    let title = String::from("Available SymbolKinds");
+    let title_width = title.len();
+
+    let mut text = String::new();
+    for (item, desc) in kinds.iter() {
+        writeln!(text, "{}  {:?} ({})", item, desc.0, desc.1).unwrap()
+    }
+    let text_width = text.lines().map(|line| line.len()).max().unwrap();
+
+    cx.editor.autoinfo = Some(
+        helix_view::info::Info {
+            title,
+            width: std::cmp::max(title_width, text_width) as u16,
+            height: kinds.len() as u16,
+            text,
+        }
+    );
+
+    cx.on_next_key(move |cx, event| {
+        cx.editor.autoinfo = None;
+
+        let filter = if let Some(ch) = event.char() {
+            kinds.get(&ch)
+        } else {
+            None
+        };
+
+        if let Some(filter) = filter {
+            let symbols = symbols.into_iter().filter(
+                |symbol| symbol.kind == filter.0
+            ).collect();
+
+            cx.push_layer(
+                Box::new(
+                    sym_picker(symbols, current_url, offset_encoding)
+                )
+            );
+        }
+    });
+}
+
 pub fn diagnostics_picker(cx: &mut Context) {
     let doc = doc!(cx.editor);
     let language_server = language_server!(cx.editor, doc);
