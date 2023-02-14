@@ -2551,7 +2551,7 @@ fn jumplist_picker(cx: &mut Context) {
             .flat_map(|(view, _)| {
                 view.jumps
                     .iter()
-                    .map(|(doc_id, selection)| new_meta(view, *doc_id, selection.clone()))
+                    .map(|(doc_id, selection, _)| new_meta(view, *doc_id, selection.clone()))
             })
             .collect(),
         (),
@@ -2815,7 +2815,7 @@ fn normal_mode(cx: &mut Context) {
 
 // Store a jump on the jumplist.
 fn push_jump(view: &mut View, doc: &Document) {
-    let jump = (doc.id(), doc.selection(view.id).clone());
+    let jump = (doc.id(), doc.selection(view.id).clone(), Some(view.offset));
     view.jumps.push(jump);
 }
 
@@ -4399,9 +4399,10 @@ fn jump_forward(cx: &mut Context) {
     let view = view_mut!(cx.editor);
     let doc_id = view.doc;
 
-    if let Some((id, selection)) = view.jumps.forward(count) {
+    if let Some((id, selection, offset)) = view.jumps.forward(count) {
         view.doc = *id;
         let selection = selection.clone();
+        let offset = offset.clone();
         let (view, doc) = current!(cx.editor); // refetch doc
 
         if doc.id() != doc_id {
@@ -4409,7 +4410,11 @@ fn jump_forward(cx: &mut Context) {
         }
 
         doc.set_selection(view.id, selection);
-        view.ensure_cursor_in_view_center(doc, config.scrolloff);
+        if let Some(pos) = offset {
+            view.offset = pos;
+        } else {
+            view.ensure_cursor_in_view_center(doc, config.scrolloff);
+        }
     };
 }
 
@@ -4419,9 +4424,10 @@ fn jump_backward(cx: &mut Context) {
     let (view, doc) = current!(cx.editor);
     let doc_id = doc.id();
 
-    if let Some((id, selection)) = view.jumps.backward(view.id, doc, count) {
+    if let Some((id, selection, offset)) = view.jumps.backward(view.id, doc, count) {
         view.doc = *id;
         let selection = selection.clone();
+        let offset = offset.clone();
         let (view, doc) = current!(cx.editor); // refetch doc
 
         if doc.id() != doc_id {
@@ -4429,7 +4435,11 @@ fn jump_backward(cx: &mut Context) {
         }
 
         doc.set_selection(view.id, selection);
-        view.ensure_cursor_in_view_center(doc, config.scrolloff);
+        if let Some(pos) = offset {
+            view.offset = pos;
+        } else {
+            view.ensure_cursor_in_view_center(doc, config.scrolloff);
+        }
     };
 }
 

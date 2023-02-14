@@ -1213,7 +1213,7 @@ impl Editor {
                         view.remove_document(&id);
                     }
                 } else {
-                    let jump = (view.doc, doc.selection(view.id).clone());
+                    let jump = (view.doc, doc.selection(view.id).clone(), Some(view.offset));
                     view.jumps.push(jump);
                     // Set last accessed doc if it is a different document
                     if doc.id != id {

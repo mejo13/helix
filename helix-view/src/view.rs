@@ -2,7 +2,7 @@ use crate::{
     align_view,
     editor::{GutterConfig, GutterType},
     graphics::Rect,
-    Align, Document, DocumentId, Theme, ViewId,
+    Align, Document, DocumentId, Theme, ViewId
 };
 
 use helix_core::{
@@ -18,7 +18,7 @@ use std::{
 
 const JUMP_LIST_CAPACITY: usize = 30;
 
-type Jump = (DocumentId, Selection);
+type Jump = (DocumentId, Selection, Option<ViewPosition>);
 
 #[derive(Debug, Clone)]
 pub struct JumpList {
@@ -60,7 +60,7 @@ impl JumpList {
     pub fn backward(&mut self, view_id: ViewId, doc: &mut Document, count: usize) -> Option<&Jump> {
         if let Some(current) = self.current.checked_sub(count) {
             if self.current == self.jumps.len() {
-                let jump = (doc.id(), doc.selection(view_id).clone());
+                let jump = (doc.id(), doc.selection(view_id).clone(), None);
                 self.push(jump);
             }
             self.current = current;
@@ -71,7 +71,7 @@ impl JumpList {
     }
 
     pub fn remove(&mut self, doc_id: &DocumentId) {
-        self.jumps.retain(|(other_id, _)| other_id != doc_id);
+        self.jumps.retain(|(other_id, _, _)| other_id != doc_id);
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Jump> {
@@ -84,7 +84,7 @@ impl JumpList {
     fn apply(&mut self, transaction: &Transaction, doc: &Document) {
         let text = doc.text().slice(..);
 
-        for (doc_id, selection) in &mut self.jumps {
+        for (doc_id, selection, _) in &mut self.jumps {
             if doc.id() == *doc_id {
                 *selection = selection
                     .clone()
@@ -148,7 +148,7 @@ impl View {
                 vertical_offset: 0,
             },
             area: Rect::default(), // will get calculated upon inserting into tree
-            jumps: JumpList::new((doc, Selection::point(0))), // TODO: use actual sel
+            jumps: JumpList::new((doc, Selection::point(0), None)), // TODO: use actual sel
             docs_access_history: Vec::new(),
             last_modified_docs: [None, None],
             object_selections: Vec::new(),
