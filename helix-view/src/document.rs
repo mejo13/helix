@@ -31,7 +31,7 @@ use helix_core::{
 };
 
 use crate::editor::{Config, RedrawHandle};
-use crate::{DocumentId, Editor, Theme, View, ViewId};
+use crate::{DocumentId, Editor, Theme, ViewPosition, View, ViewId};
 
 /// 8kB of buffer space for encoding and decoding `Rope`s.
 const BUF_SIZE: usize = 8192;
@@ -106,6 +106,7 @@ pub struct Document {
     pub(crate) id: DocumentId,
     text: Rope,
     selections: HashMap<ViewId, Selection>,
+    offsets: HashMap<ViewId, ViewPosition>,
 
     path: Option<PathBuf>,
     encoding: &'static encoding::Encoding,
@@ -152,6 +153,7 @@ impl fmt::Debug for Document {
             .field("id", &self.id)
             .field("text", &self.text)
             .field("selections", &self.selections)
+            .field("offsets", &self.offsets)
             .field("path", &self.path)
             .field("encoding", &self.encoding)
             .field("restore_cursor", &self.restore_cursor)
@@ -371,6 +373,7 @@ impl Document {
             encoding,
             text,
             selections: HashMap::default(),
+            offsets: HashMap::default(),
             indent_style: DEFAULT_INDENT,
             line_ending: DEFAULT_LINE_ENDING,
             restore_cursor: false,
@@ -756,6 +759,11 @@ impl Document {
             .insert(view_id, selection.ensure_invariants(self.text().slice(..)));
     }
 
+    /// Save offset for this view to restore when switching back to this document
+    pub fn set_offset(&mut self, view_id: ViewId, offset: ViewPosition) {
+        self.offsets.insert(view_id, offset);
+    }
+
     /// Find the origin selection of the text in a document, i.e. where
     /// a single cursor would go if it were on the first grapheme. If
     /// the text is empty, returns (0, 0).
@@ -782,9 +790,10 @@ impl Document {
         }
     }
 
-    /// Remove a view's selection from this document.
+    /// Remove a view's selection and offset from this document.
     pub fn remove_view(&mut self, view_id: ViewId) {
         self.selections.remove(&view_id);
+        self.offsets.remove(&view_id);
     }
 
     /// Apply a [`Transaction`] to the [`Document`] to change its text.
@@ -1133,6 +1142,10 @@ impl Document {
 
     pub fn selections(&self) -> &HashMap<ViewId, Selection> {
         &self.selections
+    }
+
+    pub fn offset(&self, view_id: ViewId) -> Option<&ViewPosition> {
+        self.offsets.get(&view_id)
     }
 
     pub fn relative_path(&self) -> Option<PathBuf> {

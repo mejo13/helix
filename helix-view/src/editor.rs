@@ -1158,7 +1158,13 @@ impl Editor {
         doc.ensure_view_init(view.id);
         view.sync_changes(doc);
 
-        align_view(doc, view, Align::Center);
+        if self.config.load().preserve_offset {
+            if let Some(pos) = doc.offset(view.id) {
+                view.offset = *pos;
+            }
+        } else {
+            align_view(doc, view, Align::Center);
+        }
     }
 
     pub fn switch(&mut self, id: DocumentId, action: Action) {
@@ -1190,6 +1196,8 @@ impl Editor {
 
                 let (view, doc) = current!(self);
                 let view_id = view.id;
+
+                doc.set_offset(view_id, view.offset);
 
                 // Append any outstanding changes to history in the old document.
                 doc.append_changes_to_history(view);
