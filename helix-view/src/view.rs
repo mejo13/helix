@@ -307,9 +307,8 @@ impl View {
     pub fn ensure_cursor_in_view_center(&mut self, doc: &Document, scrolloff: usize) {
         if let Some(offset) = self.offset_coords_to_in_view_center::<true>(doc, scrolloff) {
             self.offset = offset;
-        } else {
-            align_view(doc, self, Align::Center);
         }
+        align_view(doc, self, Align::Center);
     }
 
     pub fn is_cursor_in_view(&mut self, doc: &Document, scrolloff: usize) -> bool {
