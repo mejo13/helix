@@ -274,6 +274,8 @@ pub struct Config {
     /// Whether to color modes with different colors. Defaults to `false`.
     pub color_modes: bool,
     pub soft_wrap: SoftWrap,
+    /// Preserve cursor offset when switching buffer or jumping
+    pub preserve_offset: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -775,6 +777,7 @@ impl Default for Config {
             indent_guides: IndentGuidesConfig::default(),
             color_modes: false,
             soft_wrap: SoftWrap::default(),
+            preserve_offset: false,
         }
     }
 }
@@ -1166,7 +1169,13 @@ impl Editor {
         doc.ensure_view_init(view.id);
         view.sync_changes(doc);
 
-        align_view(doc, view, Align::Center);
+        if self.config.load().preserve_offset {
+            if let Some(pos) = doc.offset(view.id) {
+                view.offset = *pos;
+            }
+        } else {
+            align_view(doc, view, Align::Center);
+        }
     }
 
     pub fn switch(&mut self, id: DocumentId, action: Action) {
@@ -1199,6 +1208,8 @@ impl Editor {
                 let (view, doc) = current!(self);
                 let view_id = view.id;
 
+                doc.set_offset(view_id, view.offset);
+
                 // Append any outstanding changes to history in the old document.
                 doc.append_changes_to_history(view);
 
@@ -1213,7 +1224,7 @@ impl Editor {
                         view.remove_document(&id);
                     }
                 } else {
-                    let jump = (view.doc, doc.selection(view.id).clone());
+                    let jump = (view.doc, doc.selection(view.id).clone(), Some(view.offset));
                     view.jumps.push(jump);
                     // Set last accessed doc if it is a different document
                     if doc.id != id {
