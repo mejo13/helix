@@ -6,6 +6,8 @@ use helix_core::hashmap;
 
 pub fn default() -> HashMap<Mode, Keymap> {
     let normal = keymap!({ "Normal mode"
+        "C-n" => symbol_picker_filtered,
+        "C-h" => workspace_symbol_picker_filtered,
         "h" | "left" => move_char_left,
         "j" | "down" => move_visual_line_down,
         "k" | "up" => move_visual_line_up,
