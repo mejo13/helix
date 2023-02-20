@@ -473,6 +473,9 @@ pub enum StatusLineElement {
     /// The file type (language ID or "text")
     FileType,
 
+    /// The number of open files and current index
+    FileCount,
+
     /// A summary of the number of errors and warnings
     Diagnostics,
 
